@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MIT
+#
+# Platform address map.  Bases are on the Zynq-7000 PS master port M_AXI_GP0,
+# in the 0x43C0_0000 region conventionally used for PL peripherals on ZedBoard.
+# Each block gets a full 64 KiB page so the AXI interconnect decode stays
+# trivial and blocks can grow without renumbering.
+system: zmix
+description: ZedBoard mixed-signal platform (ADC + DAC + OLED over AXI4-Lite).
+abi:
+  major: 1
+  minor: 0
+  patch: 0
+axi:
+  master: M_AXI_GP0
+  page_size: 0x10000
+instances:
+  - {name: sysid,      block: sysid,      base: 0x43C00000, description: Bitstream identification and scratch.}
+  - {name: adc,        block: adc_ad7476, base: 0x43C10000, description: PmodAD1 sampling front end.}
+  - {name: dac,        block: dac_spi,    base: 0x43C20000, description: PmodDA2/DA3 output stage.}
+  - {name: oled,       block: oled_ctrl,  base: 0x43C30000, description: Text-mode display controller.}

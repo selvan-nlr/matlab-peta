@@ -1,0 +1,35 @@
+# Simulation
+sim_build/
+results.xml
+SUCCESS
+*.ghw
+*.vcd
+*.cf
+*.o
+work-obj*.cf
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+
+# Vivado
+*.jou
+*.log
+*.str
+.Xil/
+vivado*.backup*
+build/
+*.bit
+*.xsa
+*.runs/
+*.cache/
+*.hw/
+*.ip_user_files/
+*.sim/
+
+# Local overrides
+Makefile.local
+local.tcl

@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: MIT
+block: adc_ad7476
+description: >
+  Sampling front end for the Digilent PmodAD1 (two Analog Devices AD7476A
+  12-bit SAR ADCs sharing SCLK and CS, each with its own serial data line).
+  Both channels are therefore sampled simultaneously; there is no channel mux.
+  Samples land in a small FIFO so the host can burst-read without racing the
+  converter, and LAST keeps the most recent pair readable non-destructively for
+  the OLED and for slow polling.
+registers:
+  - name: CTRL
+    offset: 0x00
+    access: rw
+    reset: 0x00000000
+    description: Run control. TRIG and FIFO_RESET are write-1-to-act and clear themselves.
+    fields:
+      - {name: ENABLE,     bits: "0", description: Enable the acquisition engine.}
+      - {name: CONTINUOUS, bits: "1", description: Free-run at the RATE_DIV period rather than one conversion per trigger.}
+      - {name: TRIG,       bits: "2", description: "Self-clearing: start one conversion (single-shot mode)."}
+      - {name: FIFO_RESET, bits: "3", description: "Self-clearing: flush the sample FIFO and clear OVERRUN."}
+      - {name: EXT_TRIG_EN, bits: "4", description: Also start a conversion on a rising edge of the external trigger input.}
+
+  - name: CFG
+    offset: 0x04
+    access: rw
+    reset: 0x00000004
+    description: Serial-interface timing.
+    fields:
+      - name: CLK_DIV
+        bits: "7:0"
+        description: >
+          SCLK half-period in aclk cycles minus one. SCLK = f_aclk / (2*(CLK_DIV+1)).
+          The AD7476A is rated to 20 MHz SCLK; the default of 4 gives 10 MHz from a 100 MHz aclk.
+      - {name: CS_HOLD, bits: "15:8", description: Extra aclk cycles of CS high between conversions (quiet time, t_QUIET).}
+
+  - name: RATE_DIV
+    offset: 0x08
+    access: rw
+    reset: 0x000003E7
+    description: >
+      Continuous-mode sample period in aclk cycles minus one.
+      f_sample = f_aclk / (RATE_DIV+1). Default 999 gives 100 kSPS from a 100 MHz aclk.
+      A period shorter than one conversion is clamped by the engine, which reports OVERRUN.
+
+  - name: STATUS
+    offset: 0x0C
+    access: ro
+    description: Live engine state.
+    fields:
+      - {name: BUSY,       bits: "0",     description: A conversion is in progress.}
+      - {name: FIFO_EMPTY, bits: "1",     description: No samples available.}
+      - {name: FIFO_FULL,  bits: "2",     description: FIFO cannot accept another sample.}
+      - {name: OVERRUN,    bits: "3",     description: A sample was dropped because the FIFO was full. Cleared by CTRL.FIFO_RESET.}
+      - {name: LEVEL,      bits: "23:16", description: Number of samples currently in the FIFO.}
+
+  - name: DATA
+    offset: 0x10
+    access: ro
+    description: >
+      Destructive FIFO read. Reading pops one entry. VALID is 0 when the FIFO
+      was empty, in which case the sample fields are meaningless.
+    fields:
+      - {name: CH0,   bits: "11:0",  description: Channel 0 conversion result, straight binary, 0..4095.}
+      - {name: CH1,   bits: "27:16", description: Channel 1 conversion result, straight binary, 0..4095.}
+      - {name: VALID, bits: "31",    description: The popped entry was real.}
+
+  - name: LAST
+    offset: 0x14
+    access: ro
+    description: Most recent sample pair, non-destructive. Safe for display refresh and slow polling.
+    fields:
+      - {name: CH0, bits: "11:0",  description: Channel 0, most recent conversion.}
+      - {name: CH1, bits: "27:16", description: Channel 1, most recent conversion.}
+
+  - name: SAMPLE_COUNT
+    offset: 0x18
+    access: ro
+    description: Free-running count of completed conversions since reset. Wraps at 2**32.

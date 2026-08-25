@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: MIT
+block: dac_spi
+description: >
+  SPI DAC driver covering the Digilent PmodDA2 (two DAC121S101, 12-bit) and
+  PmodDA3 (AD5541A, 16-bit, with an LDAC strobe).  The serial engine is shared;
+  DEVICE selects the frame format and width, so one bitstream can drive either
+  module without a rebuild.
+registers:
+  - name: CTRL
+    offset: 0x00
+    access: rw
+    reset: 0x00000000
+    description: Run control. LOAD and LDAC are write-1-to-act and clear themselves.
+    fields:
+      - {name: ENABLE, bits: "0", description: Enable the serial engine. Held low, CS stays idle.}
+      - {name: LOAD,   bits: "1", description: "Self-clearing: shift DATA0/DATA1 out now."}
+      - {name: AUTO,   bits: "2", description: Start a transfer automatically whenever DATA0 or DATA1 is written.}
+      - {name: LDAC,   bits: "3", description: "Self-clearing: pulse the LDAC pin (PmodDA3) to move the shifted value into the DAC latch."}
+      - {name: LDAC_HOLD, bits: "4", description: Hold LDAC asserted so transfers update the output immediately.}
+
+  - name: CFG
+    offset: 0x04
+    access: rw
+    reset: 0x00000004
+    description: Serial-interface configuration.
+    fields:
+      - name: CLK_DIV
+        bits: "7:0"
+        description: SCLK half-period in aclk cycles minus one. SCLK = f_aclk / (2*(CLK_DIV+1)).
+      - {name: CPOL,   bits: "8",     description: SCLK idle level.}
+      - {name: CPHA,   bits: "9",     description: Sampling edge. PmodDA2 and PmodDA3 both use mode 0.}
+      - {name: DEVICE, bits: "17:16", description: "0 = PmodDA2 (DAC121S101, 12-bit, 2ch), 1 = PmodDA3 (AD5541A, 16-bit, 1ch), 2 = raw frame."}
+      - {name: WIDTH,  bits: "29:24", description: Frame length in bits for DEVICE = raw. Ignored otherwise.}
+
+  - name: DATA0
+    offset: 0x08
+    access: rw
+    reset: 0x00000000
+    description: Channel 0 code. 12-bit for PmodDA2, 16-bit for PmodDA3. Upper bits are ignored.
+    fields:
+      - {name: CODE, bits: "15:0", description: Straight-binary DAC code.}
+
+  - name: DATA1
+    offset: 0x0C
+    access: rw
+    reset: 0x00000000
+    description: Channel 1 code. PmodDA2 only; ignored for single-channel devices.
+    fields:
+      - {name: CODE, bits: "15:0", description: Straight-binary DAC code.}
+
+  - name: STATUS
+    offset: 0x10
+    access: ro
+    description: Live engine state.
+    fields:
+      - {name: BUSY,      bits: "0",     description: A frame is being shifted out.}
+      - {name: LDAC_ACTIVE, bits: "1",   description: The LDAC pin is currently asserted.}
+      - {name: XFER_COUNT, bits: "31:8", description: Completed frames since reset. Wraps.}
+
+  - name: READBACK
+    offset: 0x14
+    access: ro
+    description: >
+      Last frame actually shifted out, as seen by the engine. Distinct from
+      DATA0/DATA1 so the host can tell "value staged" from "value delivered" --
+      the single most useful thing to have when a DAC output looks wrong.

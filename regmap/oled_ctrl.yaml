@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: MIT
+block: oled_ctrl
+description: >
+  Text-mode display controller.  The PL owns the panel: it runs the power-up
+  sequence, holds a character framebuffer in block RAM, and refreshes the
+  display autonomously, so the screen never goes blank when host software
+  stops.  The host owns the words: it writes ASCII into character RAM through
+  CURSOR/CHAR, and live ADC and DAC values are formatted to ASCII by the host
+  and written the same way.  Three panels are supported by one engine:
+  SSD1306 over SPI (PmodOLED, 128x32), SSD1331 over SPI (PmodOLEDrgb, 96x64),
+  and SSD1306 over I2C (bare 4-pin modules).
+registers:
+  - name: CTRL
+    offset: 0x00
+    access: rw
+    reset: 0x00000000
+    description: Run control. INIT and CLEAR are write-1-to-act and clear themselves.
+    fields:
+      - {name: ENABLE,  bits: "0", description: Enable the refresh engine.}
+      - {name: INIT,    bits: "1", description: "Self-clearing: re-run the panel power-on and configuration sequence."}
+      - {name: CLEAR,   bits: "2", description: "Self-clearing: fill character RAM with spaces."}
+      - {name: INVERT,  bits: "3", description: Inverse video.}
+      - {name: DISP_ON, bits: "4", description: Panel display-on. Clearing it blanks the panel without losing character RAM.}
+
+  - name: CFG
+    offset: 0x04
+    access: rw
+    reset: 0x00000404
+    description: Panel type and interface timing.
+    fields:
+      - {name: PANEL,     bits: "1:0",   description: "0 = SSD1306 SPI 128x32, 1 = SSD1331 SPI 96x64, 2 = SSD1306 I2C."}
+      - {name: CLK_DIV,   bits: "15:8",  description: Serial half-period in aclk cycles minus one, for both the SPI and I2C engines.}
+      - {name: I2C_ADDR,  bits: "22:16", description: 7-bit I2C slave address when PANEL = 2. Typically 0x3C.}
+      - {name: CONTRAST,  bits: "31:24", description: Panel contrast, written during INIT.}
+
+  - name: CURSOR
+    offset: 0x08
+    access: rw
+    reset: 0x00000000
+    description: >
+      Character-RAM write pointer. CHAR writes land here and then advance it,
+      so a whole line is one register write per character with no address
+      bookkeeping on the host side.
+    fields:
+      - {name: COL,  bits: "7:0",  description: Character column, 0-based.}
+      - {name: ROW,  bits: "15:8", description: Character row, 0-based.}
+      - {name: WRAP, bits: "16",   description: Advance to the next row at end of line rather than clamping.}
+
+  - name: CHAR
+    offset: 0x0C
+    access: rw
+    reset: 0x00000000
+    description: >
+      Write an ASCII character at CURSOR and advance the cursor. Writing four
+      packed characters at once is supported via COUNT, which is how the host
+      pushes a whole string with one word per four characters.
+    fields:
+      - {name: C0,    bits: "7:0",   description: First character.}
+      - {name: C1,    bits: "15:8",  description: Second character.}
+      - {name: C2,    bits: "23:16", description: Third character.}
+      - {name: C3,    bits: "31:24", description: Fourth character.}
+
+  - name: GEOMETRY
+    offset: 0x10
+    access: ro
+    description: Character grid implied by the selected panel and font. The host reads this instead of hard-coding it.
+    fields:
+      - {name: COLS, bits: "7:0",   description: Character columns.}
+      - {name: ROWS, bits: "15:8",  description: Character rows.}
+      - {name: FONT_W, bits: "23:16", description: Font cell width in pixels.}
+      - {name: FONT_H, bits: "31:24", description: Font cell height in pixels.}
+
+  - name: STATUS
+    offset: 0x14
+    access: ro
+    description: Live engine state.
+    fields:
+      - {name: BUSY,        bits: "0",     description: A serial transfer is in progress.}
+      - {name: INIT_DONE,   bits: "1",     description: The panel init sequence has completed at least once.}
+      - {name: FRAME_COUNT, bits: "31:8",  description: Completed refresh frames since reset. A stalled count means the panel is not being driven.}
