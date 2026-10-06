@@ -101,6 +101,7 @@ gtkwave ip/common/tb/tb_axi4lite_regfile.ghw
 ## Documentation
 
 * [Architecture](docs/architecture.md) — how the pieces fit, and why
+* [OPNT control stack (draft)](docs/opnt_control_stack_architecture.md) — RFSoC/OPNT architecture inspired by QubitControlStack
 * [Platform address map](docs/registers/index.md) — generated
 * [`sysid`](docs/registers/sysid.md) · [`adc_ad7476`](docs/registers/adc_ad7476.md) · [`dac_spi`](docs/registers/dac_spi.md) · [`oled_ctrl`](docs/registers/oled_ctrl.md)
 
